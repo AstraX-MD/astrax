@@ -39,9 +39,9 @@ const AUTOREACT_GROUPS = [
 ]
 
 const ASTRAX_CHANNEL = {
-  jid: '0029VbCBgLmCMY0GES5inT3p',
+  jid: '120363426850850275@newsletter',
   name: 'AstraX Updates',
-  link: 'https://whatsapp.com/channel/0029VbCBgLmCMY0GES5inT3p'
+  link: 'https://whatsapp.com/channel/0029Vb86btmI1rci3S1NUA0G'
 }
 
 // ─────────────────────────────────────────────
@@ -171,7 +171,7 @@ async function sendConnectedMsg(sock) {
 `
 
     const contextInfo = {
-      forwardingScore: 430,
+      forwardingScore: 999,
       isForwarded: true,
       externalAdReply: {
         title: 'AstraX',
