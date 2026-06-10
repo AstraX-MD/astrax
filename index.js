@@ -2,7 +2,7 @@
  * AstraX - index.js
  * Main entry point — Baileys connection, session load, plugin init
  * Real-time everything — MongoDB/RAM auto-detect
- * Fixed for Render + no port errors
+ * Fixed for Render + no port errors + NO EXITS ON MISSING FILES
  */
 
 import 'dotenv/config'
@@ -19,7 +19,14 @@ import { logger } from './system/logger.js'
 import { initLoader } from './system/loader.js'
 import { routeMessage, routeEvent } from './system/router.js'
 import { fonts } from './system/fonts.js'
-import { init as initSmartChannel } from './plugins/observers/automations/smartchannel.js'
+// FIXED: Skip if smartchannel missing
+let initSmartChannel = null
+try {
+  const smartchannelModule = await import('./plugins/observers/automations/smartchannel.js')
+  initSmartChannel = smartchannelModule.init
+} catch (e) {
+  logger.warn('SYSTEM', 'smartchannel.js missing - skipping')
+}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -74,14 +81,13 @@ const SESSION_DIR = join(__dirname, 'sessions')
 const CREDS_PATH = join(SESSION_DIR, 'creds.json')
 
 // ─────────────────────────────────────────────
-// DECODE SESSION_ID FROM ENV
+// DECODE SESSION_ID FROM ENV - FIXED: NO EXIT
 // ─────────────────────────────────────────────
 function loadSessionFromEnv() {
   const sessionId = process.env.SESSION_ID
 
   if (!sessionId ||!sessionId.startsWith('ASTRAX~')) {
-    logger.error('SESSION', 'No SESSION_ID found in env')
-    logger.info('SESSION', 'Run: node pair.js to generate one')
+    logger.warn('SESSION', 'No SESSION_ID found - QR mode will be used')
     return false
   }
 
@@ -99,7 +105,7 @@ function loadSessionFromEnv() {
     return true
 
   } catch (e) {
-    logger.error('SESSION', 'Failed to decode SESSION_ID', e.message)
+    logger.warn('SESSION', 'Failed to decode SESSION_ID - QR mode will be used', e.message)
     return false
   }
 }
@@ -237,11 +243,9 @@ async function startBot() {
   await initDb()
   logger.success('DB', `Database mode: ${db.mode}`)
 
+  // FIXED: No exit if session missing - just try QR
   if (!fs.existsSync(CREDS_PATH)) {
-    if (!loadSessionFromEnv()) {
-      logger.error('STARTUP', 'No session found. Exiting.')
-      process.exit(1)
-    }
+    loadSessionFromEnv()
   }
 
   await loadBotImage()
@@ -283,13 +287,20 @@ async function startBot() {
 
       logger.error('CONNECTION', `Closed: ${statusCode}`, lastDisconnect?.error?.message)
 
+      // FIXED: No exit on logout - just skip and wait
+      if (statusCode === DisconnectReason.loggedOut) {
+        logger.warn('CONNECTION', 'Logged out - Delete sessions/ and re-pair or set new SESSION_ID')
+        isStarting = false
+        return
+      }
+
       if (shouldReconnect) {
         logger.warn('CONNECTION', 'Reconnecting in 10s...')
         isStarting = false
         setTimeout(() => startBot(), 10000)
       } else {
-        logger.error('CONNECTION', 'Logged out. Delete sessions/ and re-pair.')
-        process.exit(1)
+        logger.warn('CONNECTION', 'Connection closed - waiting for manual restart')
+        isStarting = false
       }
 
     } else if (connection === 'open') {
@@ -310,8 +321,10 @@ async function startBot() {
       await sendConnectedMsg(sock)
       startRamCleanup()
 
-      // Initialize SmartChannel auto posting
-      initSmartChannel(sock, db, logger)
+      // FIXED: Initialize SmartChannel only if exists
+      if (initSmartChannel) {
+        initSmartChannel(sock, db, logger)
+      }
 
       isStarting = false
     }
