@@ -18,7 +18,6 @@ import { initDb, db } from './system/db.js'
 import { logger } from './system/logger.js'
 import { initLoader } from './system/loader.js'
 import { routeMessage, routeEvent } from './system/router.js'
-import { box } from './system/box.js'
 import { fonts } from './system/fonts.js'
 import { init as initSmartChannel } from './plugins/observers/automations/smartchannel.js'
 
@@ -39,7 +38,7 @@ const ASTRAX_CHANNEL = {
 }
 
 // ─────────────────────────────────────────────
-// FIX: EXPRESS SERVER FOR RENDER - PREVENTS PORT SCAN TIMEOUT
+// EXPRESS SERVER FOR RENDER - PREVENTS PORT SCAN TIMEOUT
 // ─────────────────────────────────────────────
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -57,12 +56,12 @@ app.listen(PORT, () => {
   logger.success('SERVER', `Dummy port ${PORT} opened for Render`)
 })
 
-// FIX: Keep-alive ping every 14 minutes to prevent sleep
+// Keep-alive ping every 14 minutes to prevent sleep
 setInterval(() => {
   fetch(`http://localhost:${PORT}`).catch(() => {})
 }, 14 * 60 * 1000)
 
-// FIX: Prevent multiple instances + memory leaks
+// Prevent multiple instances + memory leaks
 process.setMaxListeners(20)
 let globalSock = null
 let isStarting = false
@@ -294,7 +293,7 @@ async function startBot() {
       }
 
     } else if (connection === 'open') {
-      // FIX: SET OWNER FROM CONNECTED WHATSAPP NUMBER
+      // SET OWNER FROM CONNECTED WHATSAPP NUMBER
       const botNumber = sock.user.id.split(':')[0].split('@')[0]
       await db.set('owner', botNumber)
       logger.success('OWNER', `Owner auto-set to: ${botNumber}`)
@@ -311,7 +310,7 @@ async function startBot() {
       await sendConnectedMsg(sock)
       startRamCleanup()
 
-      // ADDED: Initialize SmartChannel auto posting
+      // Initialize SmartChannel auto posting
       initSmartChannel(sock, db, logger)
 
       isStarting = false
@@ -339,7 +338,7 @@ async function startBot() {
     await routeEvent(sock, 'group-participants.update', update)
   })
 
-  // FIX: ANTIDELETE + ANTIEDIT HOOKS
+  // ANTIDELETE + ANTIEDIT HOOKS
   sock.ev.on('messages.update', async (updates) => {
     for (const update of updates) {
       // ANTIDELETE - Message deleted
