@@ -1,7 +1,7 @@
 /**
  * AstraX - plugins/commands/owner/owner.js
  * Owner VCard Generator
- * Sends owner contact as VCard
+ * Sends owner contact as VCard only
  */
 
 export default {
@@ -14,52 +14,42 @@ export default {
 
   async execute(sock, m, args, { db, logger, contextInfo, from }) {
     try {
-      // ─── GET OWNER NUMBER FROM DB ──────────────────
-      const ownerNumber = await db.get('owner')
-      
+      // ─── GET OWNER DATA FROM DB ─────────────────────────
+      const [ownerNumber, ownerName, botname] = await Promise.all([
+        db.get('owner'),
+        db.get('ownerName'),
+        db.get('botname')
+      ])
+
       if (!ownerNumber) {
+        const errorText = `
+╭─────〔 ERROR 〕─────┈⊷
+│ ◦➛ Owner not configured
+╰─────────────────────────⊷
+`
         return await sock.sendMessage(from, {
-          text: '❌ Owner not configured',
+          text: errorText.trim(),
           contextInfo
         }, { quoted: m })
       }
 
-      // ─── GET OWNER NAME FROM DB ────────────────────
-      const ownerName = await db.get('ownerName')
-      const botname = await db.get('botname')
-      const prefix = await db.get('prefix')
+      const actualName = ownerName || 'Owner'
+      const actualBot = botname || 'Bot'
 
-      // ─── CREATE VCARD ──────────────────────────────
+      // ─── CREATE VCARD ───────────────────────────────────
       const vcard = `BEGIN:VCARD
 VERSION:3.0
-FN:${ownerName}
-ORG:${botname};
+FN:${actualName}
+ORG:${actualBot};
 TEL;type=CELL;type=VOICE;waid=${ownerNumber}:${ownerNumber}
 END:VCARD`
 
-      // ─── SEND CONTACT WITH VCARD ───────────────────
+      // ─── SEND CONTACT WITH VCARD ────────────────────────
       await sock.sendMessage(from, {
         contacts: {
-          displayName: ownerName,
+          displayName: actualName,
           contacts: [{ vcard }]
         },
-        contextInfo
-      })
-
-      // ─── SEND INFO TEXT - ASTRAX BOX STYLE ─────────
-      const infoText = `
-> ╭─────〔 OWNER CONTACT 〕─────┈⊷
-> │ 𐂂 Name: ${ownerName}
-> │ 𐂂 Number: +${ownerNumber}
-> │ 𐂂 Bot: ${botname}
-> ╰─────────────────────────⊷
-
-> Tap the contact above to save
-> Type ${prefix}menu for commands
-`
-
-      await sock.sendMessage(from, {
-        text: infoText.trim(),
         contextInfo
       }, { quoted: m })
 
@@ -67,9 +57,15 @@ END:VCARD`
 
     } catch (e) {
       logger.error('OWNER', 'Failed to send VCard', e.message)
-      
+
+      const errorText = `
+╭─────〔 ERROR 〕─────┈⊷
+│ ◦➛ Failed to generate VCard
+│ ◦➛ ${e.message}
+╰─────────────────────────⊷
+`
       await sock.sendMessage(from, {
-        text: `❌ Error\nFailed to generate VCard: ${e.message}`,
+        text: errorText.trim(),
         contextInfo
       }, { quoted: m })
     }
