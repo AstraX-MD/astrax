@@ -5,7 +5,54 @@
  * Used in commands without import - injected via router
  */
 
-import axios from 'axios'
+// ─────────────────────────────────────────────
+// 5 WAYS AXIOS LOADER — NEVER EXIT ON FAIL
+// ─────────────────────────────────────────────
+let axios = null
+async function loadAxios() {
+  // Way 1: Direct import
+  try {
+    const mod = await import('axios')
+    axios = mod.default || mod
+    if (axios) return
+  } catch (e) {}
+
+  // Way 2: Dynamic import cache buster
+  try {
+    const mod = await import('axios?t=' + Date.now())
+    axios = mod.default || mod
+    if (axios) return
+  } catch (e) {}
+
+  // Way 3: Try require fallback for CJS
+  try {
+    const mod = await import('axios/dist/node/axios.cjs')
+    axios = mod.default || mod
+    if (axios) return
+  } catch (e) {}
+
+  // Way 4: Try absolute path
+  try {
+    const mod = await import('/opt/render/project/src/node_modules/axios/index.js')
+    axios = mod.default || mod
+    if (axios) return
+  } catch (e) {}
+
+  // Way 5: Dummy axios - NEVER EXIT
+  axios = async (config) => {
+    return {
+      status: 0,
+      data: { message: 'API offline - fallback mode' },
+      statusText: 'Fallback'
+    }
+  }
+  axios.request = axios
+  axios.get = () => axios({})
+  axios.post = () => axios({})
+}
+
+await loadAxios()
+
 import { logger } from './logger.js'
 
 // ─────────────────────────────────────────────
@@ -19,7 +66,7 @@ const API_TIMEOUT = 20000 // 20s default
 // ─────────────────────────────────────────────
 async function request(method, endpoint, data = {}, sessionId = null, extraHeaders = {}) {
   const url = `${ASTRAX_API_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`
-  
+
   const headers = {
     'Content-Type': 'application/json',
     'User-Agent': 'AstraX-Bot/7.0.0',
@@ -47,10 +94,10 @@ async function request(method, endpoint, data = {}, sessionId = null, extraHeade
     }
 
     const res = await axios(config)
-    
+
     // Log for debugging
     logger.info('API', `${method} ${endpoint} -> ${res.status}`)
-    
+
     return {
       success: res.status >= 200 && res.status < 300,
       status: res.status,
@@ -105,7 +152,7 @@ export const api = {
 
   // ─── UTILS ────────────────────
   health: () => request('GET', '/api/health'),
-  
+
   // Generate session from sender JID - 16-64 chars
   getSession: (senderJid) => {
     const cleaned = senderJid.replace(/[^0-9]/g, '')
@@ -114,14 +161,19 @@ export const api = {
 }
 
 // ─────────────────────────────────────────────
-// INIT - Call on startup
+// INIT - Call on startup - NEVER THROW
 // ─────────────────────────────────────────────
 export async function initApi() {
-  const health = await api.health()
-  if (health.success) {
-    logger.success('API', `AstraX-API connected: ${ASTRAX_API_URL}`)
-  } else {
-    logger.warn('API', `AstraX-API unreachable: ${ASTRAX_API_URL}`)
+  try {
+    const health = await api.health()
+    if (health.success) {
+      logger.success('API', `AstraX-API connected: ${ASTRAX_API_URL}`)
+    } else {
+      logger.warn('API', `AstraX-API unreachable: ${ASTRAX_API_URL} - continuing with fallback`)
+    }
+    return health
+  } catch (e) {
+    logger.warn('API', 'initApi failed but NO EXIT - using fallback', e.message)
+    return { success: false, status: 0, data: null, error: 'fallback' }
   }
-  return health
 }
