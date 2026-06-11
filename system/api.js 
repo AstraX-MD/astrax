@@ -1,0 +1,127 @@
+/**
+ * AstraX - system/api.js
+ * Global API client for AstraX-API on Render
+ * No hardcode - supports any endpoint added later
+ * Used in commands without import - injected via router
+ */
+
+import axios from 'axios'
+import { logger } from './logger.js'
+
+// ─────────────────────────────────────────────
+// ASTRAX-API BASE CONFIG
+// ─────────────────────────────────────────────
+const ASTRAX_API_URL = process.env.ASTRAX_API_URL || 'https://astrax-api.onrender.com'
+const API_TIMEOUT = 20000 // 20s default
+
+// ─────────────────────────────────────────────
+// CORE REQUEST HANDLER
+// ─────────────────────────────────────────────
+async function request(method, endpoint, data = {}, sessionId = null, extraHeaders = {}) {
+  const url = `${ASTRAX_API_URL}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'AstraX-Bot/7.0.0',
+    ...extraHeaders
+  }
+
+  // Auto-add session if provided
+  if (sessionId) {
+    headers['x-session-id'] = sessionId
+  }
+
+  try {
+    const config = {
+      method,
+      url,
+      headers,
+      timeout: API_TIMEOUT,
+      validateStatus: () => true // Don't throw on 4xx/5xx
+    }
+
+    if (method === 'GET') {
+      config.params = data
+    } else {
+      config.data = data
+    }
+
+    const res = await axios(config)
+    
+    // Log for debugging
+    logger.info('API', `${method} ${endpoint} -> ${res.status}`)
+    
+    return {
+      success: res.status >= 200 && res.status < 300,
+      status: res.status,
+      data: res.data,
+      error: res.status >= 400 ? res.data?.message || res.data?.error : null
+    }
+
+  } catch (e) {
+    logger.error('API', `Request failed: ${method} ${endpoint}`, e.message)
+    return {
+      success: false,
+      status: 0,
+      data: null,
+      error: e.message
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+// GLOBAL API OBJECT - Zero Hardcode
+// ─────────────────────────────────────────────
+export const api = {
+  // Base methods - support any endpoint
+  get: (endpoint, params = {}, sessionId = null) => request('GET', endpoint, params, sessionId),
+  post: (endpoint, body = {}, sessionId = null) => request('POST', endpoint, body, sessionId),
+  put: (endpoint, body = {}, sessionId = null) => request('PUT', endpoint, body, sessionId),
+  delete: (endpoint, body = {}, sessionId = null) => request('DELETE', endpoint, body, sessionId),
+
+  // ─── AI ENDPOINTS - Wrapper helpers ────────────────────
+  ai: {
+    groq: (messages, sessionId) => request('POST', '/api/ai/groq', { messages }, sessionId),
+    gemini: (messages, sessionId) => request('POST', '/api/ai/gemini', { messages }, sessionId),
+    // Future: claude, openai, etc auto-work via api.post('/api/ai/claude', ...)
+  },
+
+  // ─── TOOLS ENDPOINTS ────────────────────
+  tools: {
+    websearch: (query, sessionId) => request('GET', '/api/tools/websearch', { q: query }, sessionId),
+    // Future: weather, translate, etc
+  },
+
+  // ─── MEDIA ENDPOINTS ────────────────────
+  media: {
+    upload: (file, sessionId) => request('POST', '/api/media/upload', { file }, sessionId),
+    // Future: tiktok, youtube, etc
+  },
+
+  // ─── USER ENDPOINTS ────────────────────
+  user: {
+    profile: (userId, sessionId) => request('GET', `/api/user/profile/${userId}`, {}, sessionId),
+  },
+
+  // ─── UTILS ────────────────────
+  health: () => request('GET', '/api/health'),
+  
+  // Generate session from sender JID - 16-64 chars
+  getSession: (senderJid) => {
+    const cleaned = senderJid.replace(/[^0-9]/g, '')
+    return `astra${cleaned}`.slice(0, 64).padEnd(16, '0')
+  }
+}
+
+// ─────────────────────────────────────────────
+// INIT - Call on startup
+// ─────────────────────────────────────────────
+export async function initApi() {
+  const health = await api.health()
+  if (health.success) {
+    logger.success('API', `AstraX-API connected: ${ASTRAX_API_URL}`)
+  } else {
+    logger.warn('API', `AstraX-API unreachable: ${ASTRAX_API_URL}`)
+  }
+  return health
+}
