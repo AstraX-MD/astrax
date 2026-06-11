@@ -16,6 +16,7 @@
 import { db } from './db.js'
 import { logger } from './logger.js'
 import { fonts } from './fonts.js'
+import { api } from './api.js'
 import sharp from 'sharp'
 
 // ─────────────────────────────────────────────
@@ -352,7 +353,7 @@ export async function routeMessage(sock, m) {
     if (permCheck!== true) {
       const errorMsg =
         typeof permCheck === 'object' && permCheck?.error
-      ? permCheck.error
+     ? permCheck.error
           : '🚫 You do not have permission to use this command.'
       const contextInfo = await getChannelContext(sock, m)
       await sock.sendMessage(from, { text: errorMsg, contextInfo }, { quoted: m })
@@ -375,6 +376,7 @@ export async function routeMessage(sock, m) {
         db,
         fonts,
         logger,
+        api,
         prefix: currentPrefix,
         botJid: sock.user?.id || '',
         sender,
