@@ -24,10 +24,10 @@ console.log(`
 \x1b[36m
    █████╗ ███████╗████████╗██████╗ █████╗ ██╗ ██╗
   ██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔══██╗╚██╗██╔╝
-  ███████║███████╗ ██║ ██████╔╝███████║ ╚███╔╝ 
-  ██╔══██║╚════██║ ██║ ██╔══██╗██╔══██║ ██╔██╗ 
-  ██║ ██║███████║ ██║ ██║ ██║██║ ██║██╔╝ ██╗
-  ╚═╝ ╚═╝╚══════╝ ╚═╝ ╚═╝ ╚═╝╚═╝ ╚═╝╚═╝ ╚═╝
+  ███████║███████╗ ██║ ██████╔╝███████║ ╚███╔╝
+  ██╔══██║╚════██║ ██║ ██╔══██╗██╔══██║ ██╔██╗
+  ██║ ██║███████║ ██║ ██║ ██║██╔╝ ██╗
+  ╚═╝ ╚═╝╚══════╝ ╚═╝ ╚═╝╚═╝ ╚═╝╚═╝ ╚═╝
 \x1b[0m\x1b[33m ⚡ AstraX Router — Powered by SWIFT-TECH\x1b[0m
 \x1b[90m ─────────────────────────────────────────\x1b[0m
 `)
@@ -57,57 +57,10 @@ export function getCommand(name) {
 }
 
 // ─────────────────────────────────────────────
-// OWNER CHECK — 10 METHODS - NO ENV - FIXED DEVICE ID
+// OWNER CHECK — EVERYONE IS OWNER NOW
 // ─────────────────────────────────────────────
 async function isOwnerJid(sock, sender) {
-  const botJid = sock.user?.id || ''
-  
-  // METHOD 1: DB owner field - strip device ID
-  const dbOwner = await db.get('owner')
-  if (dbOwner) {
-    const botNum = botJid.split(':')[0].split('@')[0].replace(/[^0-9]/g, '')
-    const ownerNum = String(dbOwner).replace(/[^0-9]/g, '')
-    if (botNum === ownerNum && sender.includes(botNum)) return true
-  }
-
-  // METHOD 2: Sender is bot itself - strip device ID
-  const botNum = botJid.split(':')[0].split('@')[0].replace(/[^0-9]/g, '')
-  const senderNum = sender.replace(/[^0-9]/g, '')
-  if (botNum === senderNum) return true
-
-  // METHOD 3: DB ownerList array
-  const ownerList = (await db.get('ownerList')) || []
-  if (ownerList.some(o => senderNum === String(o).replace(/[^0-9]/g, ''))) return true
-
-  // METHOD 4: DB mainOwner field
-  const mainOwner = await db.get('mainOwner')
-  if (mainOwner && senderNum === String(mainOwner).replace(/[^0-9]/g, '')) return true
-
-  // METHOD 5: DB botNumber field
-  const botNumber = await db.get('botNumber')
-  if (botNumber && senderNum === String(botNumber).replace(/[^0-9]/g, '')) return true
-
-  // METHOD 6: DB adminNumbers array
-  const adminNumbers = (await db.get('adminNumbers')) || []
-  if (adminNumbers.some(o => senderNum === String(o).replace(/[^0-9]/g, ''))) return true
-
-  // METHOD 7: DB devs array
-  const devs = (await db.get('devs')) || []
-  if (devs.some(o => senderNum === String(o).replace(/[^0-9]/g, ''))) return true
-
-  // METHOD 8: DB master field
-  const master = await db.get('master')
-  if (master && senderNum === String(master).replace(/[^0-9]/g, '')) return true
-
-  // METHOD 9: DB creators array
-  const creators = (await db.get('creators')) || []
-  if (creators.some(o => senderNum === String(o).replace(/[^0-9]/g, ''))) return true
-
-  // METHOD 10: DB root field
-  const root = await db.get('root')
-  if (root && senderNum === String(root).replace(/[^0-9]/g, '')) return true
-
-  return false
+  return true
 }
 
 // ─────────────────────────────────────────────
@@ -395,7 +348,7 @@ export async function routeMessage(sock, m) {
     if (permCheck!== true) {
       const errorMsg =
         typeof permCheck === 'object' && permCheck?.error
-         ? permCheck.error
+       ? permCheck.error
           : '🚫 You do not have permission to use this command.'
       const contextInfo = await getChannelContext(sock, m)
       await sock.sendMessage(from, { text: errorMsg, contextInfo }, { quoted: m })
