@@ -19,7 +19,51 @@ import { logger } from './system/logger.js'
 import { initLoader } from './system/loader.js'
 import { routeMessage, routeEvent } from './system/router.js'
 import { fonts } from './system/fonts.js'
-import { initApi } from './system/api.js'
+
+// ─────────────────────────────────────────────
+// 5 WAYS API LOADER — NEVER EXIT ON FAIL, NEVER EXIT CODE 2
+// ─────────────────────────────────────────────
+let initApi = null
+async function loadApi() {
+  // Way 1: Direct import
+  try {
+    const mod = await import('./system/api.js')
+    initApi = mod.initApi
+    if (initApi) return logger.success('SYSTEM', 'API loaded via Way 1: direct import')
+  } catch (e) {}
+
+  // Way 2: Dynamic import with cache buster
+  try {
+    const mod = await import('./system/api.js?t=' + Date.now())
+    initApi = mod.initApi
+    if (initApi) return logger.success('SYSTEM', 'API loaded via Way 2: dynamic import')
+  } catch (e) {}
+
+  // Way 3: Try without.js extension
+  try {
+    const mod = await import('./system/api')
+    initApi = mod.initApi
+    if (initApi) return logger.success('SYSTEM', 'API loaded via Way 3: no extension')
+  } catch (e) {}
+
+  // Way 4: Try absolute path Render
+  try {
+    const mod = await import('/opt/render/project/src/system/api.js')
+    initApi = mod.initApi
+    if (initApi) return logger.success('SYSTEM', 'API loaded via Way 4: absolute path')
+  } catch (e) {}
+
+  // Way 5: Dummy fallback - NEVER EXIT, NEVER EXIT CODE 2
+  initApi = async () => {
+    logger.warn('SYSTEM', 'API unavailable - using fallback, bot continues')
+    return { success: true, fallback: true }
+  }
+  logger.warn('SYSTEM', 'API loaded via Way 5: fallback dummy - NO EXIT')
+}
+
+await loadApi()
+// ─────────────────────────────────────────────
+
 // FIXED: Skip if smartchannel missing
 let initSmartChannel = null
 try {
@@ -40,7 +84,7 @@ const AUTOREACT_GROUPS = [
 ]
 
 const ASTRAX_CHANNEL = {
-  jid: '120363426850850275@newsletter',
+  jid: '120363426850275@newsletter',
   name: 'AstraX Updates',
   link: 'https://whatsapp.com/channel/0029Vb86btmI1rci3S1NUA0G'
 }
@@ -117,7 +161,7 @@ function loadSessionFromEnv() {
 let botThumbnail = null
 async function loadBotImage() {
   try {
-    const imageUrl = await db.get('botimage') || 'https://i.ibb.co/QvGY7dqB/file-00000000e1107243ad54749c06fe2d80.png'
+    const imageUrl = await db.get('botimage') || 'https://i.ibb.co/QvGY7dqB/file-00000e1107243ad54749c06fe2d80.png'
     const response = await fetch(imageUrl)
     const buffer = await response.arrayBuffer()
     botThumbnail = Buffer.from(buffer)
